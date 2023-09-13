@@ -1,4 +1,7 @@
 const typeDefs = `
+
+  # User
+
   type User {
     id         : ID
     email      : String
@@ -22,13 +25,68 @@ const typeDefs = `
     token: String
   }
 
-  type Query {
-    getUserByToken(token: String!) : User 
+  # Product
+
+  type Product {
+    id        : ID
+    name      : String
+    stock     : Int
+    price     : Float
+    createdAt : String
   }
 
+  input ProductInput {
+    name      : String!
+    stock     : Int!
+    price     : Float!
+  }
+
+  # Clients
+
+  input ClientInput {
+    firstName: String!
+    lastName: String!
+    company: String!
+    email: String!
+    phone: String
+  }
+
+  type Client {
+    id: ID
+    firstName: String
+    lastName: String
+    company: String
+    email: String
+    phone: String
+    seller: ID
+  }
+
+  # Querys
+
+  type Query {
+    # Users
+    getUserByToken(token: String!) : User 
+    
+    #Products
+    getAllProducts: [Product]
+    getProductById(id: ID!) : Product
+  }
+
+  # Mutations
+
   type Mutation {
-    addUser(input: UserInput!): User
-    authenticate(input: AuthInput!) : Token
+    # <!- users 
+      addUser(input: UserInput!): User
+      authenticate(input: AuthInput!) : Token
+    # -!>
+    # <!- products 
+    createProduct(input: ProductInput!): Product
+    updateProduct(id: ID!, input: ProductInput) : Product
+    deleteProduct(id: ID!): String
+    # -!>
+    # <!- clients
+    addClient(input: ClientInput!) : Client 
+    # -!>
   }
 `
 
