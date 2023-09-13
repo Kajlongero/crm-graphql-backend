@@ -23,6 +23,10 @@ const UserSchema = new Schema({
     required: true,
     strim: true,
   },
+  role: {
+    type: String,
+    default: 'seller',
+  },
   createdAt: {
     type: Date,
     required: false,

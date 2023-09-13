@@ -1,7 +1,4 @@
 const typeDefs = `
-  type Query {
-    getRandom   : String
-  }
   type User {
     id         : ID
     email      : String
@@ -15,8 +12,23 @@ const typeDefs = `
     firstName : String!
     lastName  : String! 
   }
+
+  input AuthInput {
+    email     : String!
+    password  : String!
+  }
+
+  type Token {
+    token: String
+  }
+
+  type Query {
+    getUserByToken(token: String!) : User 
+  }
+
   type Mutation {
     addUser(input: UserInput!): User
+    authenticate(input: AuthInput!) : Token
   }
 `
 
