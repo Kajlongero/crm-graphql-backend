@@ -61,23 +61,64 @@ const typeDefs = `
     seller: ID
   }
 
+  # Orders 
+
+  input OrderProductInput {
+    id: ID
+    quantity: Int
+  }
+
+  enum OrderStatus {
+    PENDING
+    COMPLETED
+    CANCELLED
+  }
+
+  input OrderInput {
+    order: [OrderProductInput]!
+    total: Float!
+    status: OrderStatus!
+    client: ID!
+  }
+
+  type OrderGroup {
+    id: ID
+    quantity: Int
+  }
+
+  type Order {
+    id: ID
+    order: [OrderGroup]
+    total: Float
+    status: OrderStatus
+    client: ID
+    seller: ID
+    createdAt: String
+  }
+
   # Querys
 
   type Query {
     # Users
+    getAllUsers: [User]
     getUserByToken(token: String!) : User 
     
     #Products
     getAllProducts: [Product]
     getProductById(id: ID!) : Product
+
+    # Clients
+    getAllClients: [Client]
+    getClientsBySeller: [Client]
+    getClientById(id: ID!): Client
   }
-
+  
   # Mutations
-
+  
   type Mutation {
     # <!- users 
-      addUser(input: UserInput!): User
-      authenticate(input: AuthInput!) : Token
+    addUser(input: UserInput!): User
+    authenticate(input: AuthInput!) : Token
     # -!>
     # <!- products 
     createProduct(input: ProductInput!): Product
@@ -86,6 +127,11 @@ const typeDefs = `
     # -!>
     # <!- clients
     addClient(input: ClientInput!) : Client 
+    updateClient(id: ID!, input: ClientInput) : Client
+    deleteClient(id: ID!) : String
+    # -!>
+    # <!- orders
+    newOrder(input: OrderInput!) : Order
     # -!>
   }
 `

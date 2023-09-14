@@ -23,7 +23,7 @@ const ClientSchema = new Schema({
     unique: true,
     trim: true,
   },
-  phoneNumber: {
+  phone: {
     type: String,
     trim: true,
   },

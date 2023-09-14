@@ -5,6 +5,7 @@ const verifyToken = require('../utils/jwt.verify');
 const { UserModel } = require("../models/user.model");
 const { ClientModel } = require("../models/client.model");
 const { ProductModel } = require("../models/product.model");
+const { OrderModel } = require("../models/order.model");
 
 const resolvers = {
   Query: {
@@ -14,6 +15,17 @@ const resolvers = {
         const userData = await UserModel.findById(verify.sub);
         
         return userData;
+      }catch(e){
+        console.error(e);
+      }
+    },
+    getAllUsers: async () => {
+      try{
+
+        const users = await UserModel.find();
+
+        return users;
+
       }catch(e){
         console.error(e);
       }
@@ -34,6 +46,41 @@ const resolvers = {
         if(!product) throw new Error('product does not exists');
 
         return product;
+      }catch(e){
+        console.error(e);
+      }
+    },
+    getAllClients: async () => {
+      try{
+        const clients = await ClientModel.find();
+        return clients;
+      }catch(e){
+        console.error(e);
+      }
+    },
+    getClientsBySeller: async (_, {}, ctx, inf) => {
+      try{
+        const { sub } = ctx.user;
+        const clientsBySeller = await ClientModel.find({
+          seller: sub,
+        });
+        return clientsBySeller;
+      }catch(e){
+        console.error(e);
+      }
+    },
+    getClientById: async (_, { id }, ctx) => {
+      try{
+        if(!ctx.user) throw new Error('unauthorized');
+
+        const { sub } = ctx.user;
+
+        const client = await ClientModel.findById(id);
+        if(!client) throw new Error('client not found');
+ 
+        if(client.seller.toString() !== sub.toString()) throw new Error('you do not have permissions to view information about this client');
+
+        return client;
       }catch(e){
         console.error(e);
       }
@@ -126,6 +173,64 @@ const resolvers = {
       }catch(e){
         console.error(e);
       }
+    },
+    updateClient: async (_, { id, input }, ctx) => {
+      
+      if(!ctx.user) throw new Error('unauthorized');
+      const { sub } = ctx.user;
+
+      const client = await ClientModel.findById(id);
+      if(client.seller.toString() !== sub.toString()) throw new Error('unauthorized');
+
+      const clientUpdated = await ClientModel.findByIdAndUpdate(id, input, {
+        new: true,
+      });
+
+      return clientUpdated;
+    },
+    deleteClient: async (_, { id }, ctx) => {
+      if(!ctx.user) throw new Error('unauthorized');
+      const { sub } = ctx.user;
+
+      const client = await ClientModel.findById(id);
+      if(client.seller.toString() !== sub.toString()) throw new Error('unauthorized');
+
+      await ClientModel.findByIdAndDelete(id);
+
+      return "deleted successfully";
+    },
+    newOrder: async (_, { input }, ctx) => {
+      if(!ctx.user) throw new Error('unauthorized');
+      const { sub } = ctx.user;
+
+      const { client, order } = input;
+
+      const existClient = await ClientModel.findOne({ _id: client });
+      if(!existClient) throw new Error('client not exists');
+
+      if(existClient.seller.toString() !== sub.toString()) 
+        throw new Error('client is not assigned to this seller');
+    
+      for await (const product of order) {
+        const { id } = product;
+
+        const fetchedProduct = await ProductModel.findById(id);
+
+        if(parseInt(fetchedProduct.stock) < parseInt(product.quantity)) 
+          throw new Error(`the product '${fetchedProduct.name}' exceeds the available stock`);
+      }
+
+      for await (const product of order) {
+        const { id } = product;
+        const fetchedProduct = await ProductModel.findById(id);
+
+        await ProductModel.findByIdAndUpdate(id, {stock: fetchedProduct.stock - product.quantity});
+      }
+
+      const newOrder = new OrderModel({ ...input, seller: sub });
+      newOrder.save();
+
+      return newOrder;
     }
   }
 }
