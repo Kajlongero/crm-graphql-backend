@@ -84,6 +84,100 @@ const resolvers = {
       }catch(e){
         console.error(e);
       }
+    },
+    getAllOrders: async () => {
+      try{
+
+        const allOrders = await OrderModel.find();
+        return allOrders;
+
+      }catch(e){
+        console.error(e);
+      }
+    },
+    getOrdersBySeller: async (_, { }, ctx) => {
+      if(!ctx.user) throw new Error('unauthorized');
+      const { sub } = ctx.user;
+      try{
+        const orders = await OrderModel.find({ seller: sub });
+        return orders;
+      }catch(e){
+        console.error(e);
+      }
+    },
+    getOrderById: async (_, { id }, ctx) => {
+      if(!ctx.user) throw new Error('unauthorized');
+
+      const { sub } = ctx.user;
+
+      try{
+        const order = await OrderModel.findById(id);
+        if(!order) throw new Error('order does not exists');
+        if(order.seller.toString() !== sub.toString()) throw new Error('unauthorized');
+
+        return order;
+      }catch(e){
+        throw new Error(e);
+      }
+
+    },
+    getOrderByStatus: async (_, { status }, ctx) => {
+      if(!ctx.user) throw new Error('unauthorized');
+      const { sub } = ctx.user;
+
+      const orders = await OrderModel.find({ 
+        seller: sub,
+        status: status,
+      });
+
+      return orders;
+    },
+    bestClients: async () => {
+      const clients = await OrderModel.aggregate([
+        {$match: {status: 'COMPLETED'}},
+        {$group: {
+          _id: '$client',
+          total: { $sum: '$total' }
+        }},
+        {
+          $lookup: {
+            from: 'clients',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'client',
+          },
+        },
+        {
+          $sort: { total: -1 },
+        }
+      ]);
+      return clients;
+    },
+    bestSellers: async () => {
+      const sellers = await OrderModel.aggregate([
+        {$match: { status: 'COMPLETED' }},
+        {$group: {
+          _id: '$seller',
+          total: { $sum: '$total' }
+        }},
+        {
+          $lookup: {
+            from: 'users',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'seller'
+          }
+        },
+        { 
+          $sort: {
+            total: -1
+          }
+        },
+        {
+          $limit: 3
+        }
+      ]);
+      return sellers;
     }
   },
   Mutation: {
@@ -231,7 +325,72 @@ const resolvers = {
       newOrder.save();
 
       return newOrder;
-    }
+    },
+    updateOrder: async (_, { id, input }, ctx) => {
+      if(!ctx.user) throw new Error('unauthorized');
+      const { sub } = ctx.user;
+
+      const order = await OrderModel.findById(id);
+      if(!order) throw new Error('order does not exists');
+      
+      const client = await ClientModel.findById(input.client);
+      if(!client) throw new Error('client does not exists');
+      
+      if(order.seller.toString() !== sub.toString()) throw new Error('unauthorized');
+
+      // we check if the sum of the order and the product actual stock is minor than the input
+      // if true, it throws an error because product quantity to update is more than the stock
+      // if flase, continue
+      // after that we should change the product stock quantity and update the product stock quantity
+      // and obviously change the total
+      for await (const product of order.order) {
+        const fetchedProduct = await ProductModel.findById(product.id);
+        const productOnOrder = order.order.findIndex(p => p.id === product.id);
+
+        const actualQuantity = order.order[productOnOrder].quantity + fetchedProduct.stock;
+        const productOnInput = input.order[input.order.findIndex(p => p.id === product.id)].quantity;
+
+        if(actualQuantity < productOnInput)
+          throw new Error(`the product '${fetchedProduct.name}' exceeds the available stock`);
+      }
+
+      for await (const product of order.order) {
+        const fetchedProduct = await ProductModel.findById(product.id);
+        const productOnOrder = order.order.findIndex(p => p.id === product.id);
+
+        const actualQuantity = order.order[productOnOrder].quantity + fetchedProduct.stock;
+        const productOnInput = input.order[input.order.findIndex(p => p.id === product.id)].quantity;
+
+        await ProductModel.findByIdAndUpdate(fetchedProduct.id, { 
+          stock: parseInt(actualQuantity - productOnInput),
+        });
+      }
+      const updated = await OrderModel.findByIdAndUpdate(id, input, {
+        new: true,
+      });
+
+      return updated;
+    },
+    deleteOrder: async (_, { id }, ctx) => {
+      if(!ctx.user) throw new Error('unauthorized');
+      const { sub } = ctx.user;
+
+      const order = await OrderModel.findById(id);
+      if(!order) throw new Error('order does not exists');
+
+      if(order.seller.toString() !== sub.toString()) throw new Error('unauthorized');
+
+      for await (const product of order.order) {
+        const productFetched = await ProductModel.findById(product.id);
+        
+        await ProductModel.findByIdAndUpdate(product.id, { 
+          stock: parseInt(productFetched.stock + product.quantity), 
+        });
+      }
+
+      await OrderModel.findByIdAndDelete(id);
+      return "deleted successfully";
+    },
   }
 }
 

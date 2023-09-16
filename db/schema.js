@@ -64,8 +64,8 @@ const typeDefs = `
   # Orders 
 
   input OrderProductInput {
-    id: ID
-    quantity: Int
+    id: ID!
+    quantity: Int!
   }
 
   enum OrderStatus {
@@ -96,6 +96,18 @@ const typeDefs = `
     createdAt: String
   }
 
+  # Advanced
+
+  type BestClient {
+    total: Float
+    client: [Client]
+  }
+
+  type BestSellers {
+    total: Float
+    seller: [User]
+  }
+
   # Querys
 
   type Query {
@@ -111,6 +123,16 @@ const typeDefs = `
     getAllClients: [Client]
     getClientsBySeller: [Client]
     getClientById(id: ID!): Client
+
+    # Orders
+    getAllOrders: [Order]
+    getOrdersBySeller: [Order]
+    getOrderById(id: ID!): Order
+    getOrderByStatus(status: OrderStatus!): [Order]
+    
+    # Advanced
+    bestClients: [BestClient]
+    bestSellers: [BestSellers]
   }
   
   # Mutations
@@ -132,6 +154,8 @@ const typeDefs = `
     # -!>
     # <!- orders
     newOrder(input: OrderInput!) : Order
+    updateOrder(id: ID!, input: OrderInput!) : Order
+    deleteOrder(id: ID!) : String
     # -!>
   }
 `
