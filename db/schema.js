@@ -133,6 +133,7 @@ const typeDefs = `
     # Advanced
     bestClients: [BestClient]
     bestSellers: [BestSellers]
+    searchByProductName(product: String!): [Product]
   }
   
   # Mutations

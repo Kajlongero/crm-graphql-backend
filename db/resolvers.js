@@ -178,6 +178,16 @@ const resolvers = {
         }
       ]);
       return sellers;
+    },
+    searchByProductName: async (_, { product }, ctx) => {
+      const products = await ProductModel.find({
+        $text: {
+          $search: product,
+          $caseSensitive: false,
+        },
+      });
+
+      return products;
     }
   },
   Mutation: {
