@@ -66,6 +66,8 @@ const typeDefs = `
   input OrderProductInput {
     id: ID!
     quantity: Int!
+    name: String!
+    price: Float!
   }
 
   enum OrderStatus {
@@ -84,6 +86,8 @@ const typeDefs = `
   type OrderGroup {
     id: ID
     quantity: Int
+    name: String
+    price: Float
   }
 
   type Order {
@@ -91,7 +95,7 @@ const typeDefs = `
     order: [OrderGroup]
     total: Float
     status: OrderStatus
-    client: ID
+    client: Client
     seller: ID
     createdAt: String
   }
@@ -114,6 +118,7 @@ const typeDefs = `
     # Users
     getAllUsers: [User]
     getUserByToken(token: String!) : User 
+    isValidToken(token: String!) : Boolean
     
     #Products
     getAllProducts: [Product]
@@ -156,6 +161,7 @@ const typeDefs = `
     # <!- orders
     newOrder(input: OrderInput!) : Order
     updateOrder(id: ID!, input: OrderInput!) : Order
+    updateOrderByStatus(id: ID!, status: OrderStatus!) : Order
     deleteOrder(id: ID!) : String
     # -!>
   }

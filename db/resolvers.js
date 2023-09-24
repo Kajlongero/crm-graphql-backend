@@ -10,14 +10,21 @@ const { OrderModel } = require("../models/order.model");
 const resolvers = {
   Query: {
     getUserByToken: async (_, { token }, ctx, inf) => {
+      if(!token) throw new Error('no token given');
+      
+      const verify = verifyToken(token);
+      if(!verify) throw new Error('token invalid');
+      
       try{
-        const verify = verifyToken(token);
         const userData = await UserModel.findById(verify.sub);
         
         return userData;
       }catch(e){
         console.error(e);
       }
+    },
+    isValidToken: async (_, { token }) => {
+      return verifyToken(token) ? true : false; 
     },
     getAllUsers: async () => {
       try{
@@ -70,11 +77,11 @@ const resolvers = {
       }
     },
     getClientById: async (_, { id }, ctx) => {
+      if(!ctx.user) throw new Error('unauthorized');
+
+      const { sub } = ctx.user;
+
       try{
-        if(!ctx.user) throw new Error('unauthorized');
-
-        const { sub } = ctx.user;
-
         const client = await ClientModel.findById(id);
         if(!client) throw new Error('client not found');
  
@@ -99,7 +106,7 @@ const resolvers = {
       if(!ctx.user) throw new Error('unauthorized');
       const { sub } = ctx.user;
       try{
-        const orders = await OrderModel.find({ seller: sub });
+        const orders = await OrderModel.find({ seller: sub }).populate('client');
         return orders;
       }catch(e){
         console.error(e);
@@ -109,17 +116,11 @@ const resolvers = {
       if(!ctx.user) throw new Error('unauthorized');
 
       const { sub } = ctx.user;
+      const order = await OrderModel.findById(id);
 
-      try{
-        const order = await OrderModel.findById(id);
-        if(!order) throw new Error('order does not exists');
-        if(order.seller.toString() !== sub.toString()) throw new Error('unauthorized');
+      if(!order) throw new Error('order does not exists');
 
-        return order;
-      }catch(e){
-        throw new Error(e);
-      }
-
+      if(order.seller.toString() !== sub.toString()) throw new Error('unauthorized');
     },
     getOrderByStatus: async (_, { status }, ctx) => {
       if(!ctx.user) throw new Error('unauthorized');
@@ -192,16 +193,16 @@ const resolvers = {
   },
   Mutation: {
     addUser: async (_, { input }, ctx, inf) => {
-      try{
-        const { email, password } = input;
-
-        const verifyEmail = await UserModel.findOne({
-          email: email
-        });
+      const { email, password } = input;
+      
+      const verifyEmail = await UserModel.findOne({
+        email: email
+      });
         if(verifyEmail) throw new Error('email already exists');
   
         const hashPassword = await bcrypt.hash(password, 10);
   
+      try{
         const user = new UserModel({ ...input, password: hashPassword, role: 'seller' });
         await user.save();
   
@@ -235,10 +236,10 @@ const resolvers = {
       }
     },
     updateProduct: async (_, { id, input }, ctx) => {
+      const product = await ProductModel.findById(id);
+      if(!product) throw new Error('product does not exists');
+      
       try{
-        const product = await ProductModel.findById(id);
-        if(!product) throw new Error('product does not exists');
-
         const editProduct = await ProductModel.findOneAndUpdate({ _id: id }, input, {
           new: true,
         });
@@ -249,11 +250,11 @@ const resolvers = {
       }
     },
     deleteProduct: async (_, { id }, ctx) => {
-      try{
-        const product = await ProductModel.findById(id);
+      const product = await ProductModel.findById(id);
 
         if(!product) throw new Error('product does not exists');
-
+        
+      try{
         await ProductModel.findByIdAndDelete({ _id: id });
 
         return "deleted successfully";
@@ -262,14 +263,14 @@ const resolvers = {
       }
     },
     addClient: async (_, { input }, ctx) => {
-      try{
-        const { email } = input;
-        const verifyEmail = await ClientModel.findOne({ email });
-  
+      const { email } = input;
+      const verifyEmail = await ClientModel.findOne({ email });
+      
         if(verifyEmail) throw new Error('client already registered')
-
+        
         const user = ctx.user;
-
+        
+      try{
         const client = new ClientModel({ ...input, seller: user.sub });
         await client.save();
 
@@ -285,6 +286,9 @@ const resolvers = {
 
       const client = await ClientModel.findById(id);
       if(client.seller.toString() !== sub.toString()) throw new Error('unauthorized');
+
+      const getByEmail = await ClientModel.findOne({ email: input.email });
+      if(getByEmail.id !== id) throw new Error('Email already in use');
 
       const clientUpdated = await ClientModel.findByIdAndUpdate(id, input, {
         new: true,
@@ -380,6 +384,25 @@ const resolvers = {
       });
 
       return updated;
+    },
+    updateOrderByStatus: async (_, { id, status }, ctx) => {
+      if(!ctx.user) throw new Error('unauthorized');
+      const { sub } = ctx.user;
+
+      const order = await OrderModel.findById(id);
+      if(!order) throw new Error('order does not exists');
+
+      if(order.seller.toString() !== sub) throw new Error('unauthorized');
+
+      try{
+        const orderUpdated = await OrderModel.findByIdAndUpdate(id, { status }, { 
+          new: true 
+        });
+
+        return orderUpdated;
+      }catch(e){
+        console.error(e);
+      }
     },
     deleteOrder: async (_, { id }, ctx) => {
       if(!ctx.user) throw new Error('unauthorized');

@@ -18,13 +18,15 @@ startStandaloneServer(srv, {
   context: ({ req }) => {
     try{
       const token = req.headers['authorization'] || '';
-      const user = verifyToken(token);
-
+      const rawToken = token.replace('Bearer ', '');
+      
+      const user = verifyToken(rawToken);
+        
       return {
         user
       }
     }catch(e) {
-      console.error('authentication error');
+      
     }
   }
 }).then(({ url }) => console.log(`Running at: ${url}`));
